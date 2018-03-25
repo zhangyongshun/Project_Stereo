@@ -5,5 +5,5 @@ This is a guide of camera calibration which is base of Computer vision.
 ###
 #python_code includes the python code of this guide according to Project_Stereo.pdf
 ###
-#report_letax includes origin documents of letax, which is used to wirtte report.
+#report_letax includes origin documents of letax, which is used to write report.
 
