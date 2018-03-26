@@ -1,6 +1,7 @@
 import cv2 as cv
 import glob
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 #inner corners on the chessboard
@@ -29,28 +30,30 @@ for fimage in images:
         #use function cornerSubPix to refine corner coordinates to subpixel accuracy
         term = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_COUNT, 30, 0.1)
         cv.cornerSubPix(gray_image, corners, (5, 5), (-1, -1), term)
-
         pattern_points.append(single_pattern_points)
         image_points.append(corners)
-
-        #draw the corners on the image, and store them under the engineering catalogue
-        cv.drawChessboardCorners(gray_image, pattern_size, corners, found)
-        cv.imshow('Corners', gray_image)
-        cv.imwrite('Project_Stereo_left\left_corner\left'+ str(num) + '.jpg' ,gray_image)
-        num += 1
-        cv.waitKey(1)
 h, w = gray_image.shape
-print(w)
+
 retvla, cameraMatrix, distCoeffis, rvecs, tvecs = cv.calibrateCamera(pattern_points, image_points, (w, h), None,None)
 
-print("camera matrix is:\n", cameraMatrix)
-print(rvecs)
-print(tvecs[0])
-#reprojection error
-error = 0
-for i in range(len(pattern_points)):
-    new_image_points, _ = cv.projectPoints(pattern_points[i], rvecs[i], tvecs[i], cameraMatrix, distCoeffis)
-    error += cv.norm(image_points[i], new_image_points, cv.NORM_L2) / len(new_image_points)
-print("total error is:", error/len(pattern_points))
+
+#undistort with function getOptimalNewCameraMatrix() and function undistort()
+single_image = cv.imread('Project_Stereo_left\left\left02.jpg')
+single_gray_image = cv.cvtColor(single_image, cv.COLOR_BGR2GRAY)
+h, w = single_gray_image.shape
+
+newCameraMatrix, _ = cv.getOptimalNewCameraMatrix(cameraMatrix, distCoeffis, (w, h), 0, (w, h))
+undistort_image = cv.undistort(single_gray_image, cameraMatrix, distCoeffis, None, newCameraMatrix)
+
+plt.subplot(1, 2, 1)
+plt.title('Before undistortion')
+plt.imshow(single_gray_image)
+plt.axis('off')
+plt.subplot(1, 2, 2)
+plt.title('After undistortion')
+plt.imshow(undistort_image)
+plt.axis('off')
+plt.show()
 cv.destroyAllWindows()
+
 
