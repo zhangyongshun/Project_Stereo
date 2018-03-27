@@ -28,8 +28,8 @@
 **Z.ZhangCameraCalibration.py**
 
    
-  This program implements the Z.Zhang's method of camera calibration, which has not been finished yet
-  
+  This program implements the Z.Zhang's method of camera calibration, which has not been finished yet, the peogress of Z.Zhang's method   has been finished, but the parameters figured out are not correct, which need to be debug later. 
+
   INPUT: images with chessboards
   
   OUTPUT: intrinsic parameters, extrinsic parameters, reprojection error, the undistort image
