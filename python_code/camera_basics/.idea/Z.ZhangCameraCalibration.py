@@ -49,54 +49,68 @@ for fimage in images:
         pattern_points.append(single_pattern_points)
         image_points.append(corners)
 
-
+        '''
         #normalization the matrix
         #translation and scale
 
         #copy the single_pattern_points and corners !!! it's important because of the python mechanism
-        single_pattern_points_copy = copy.deepcopy(single_pattern_points)
-        corners_copy = copy.deepcopy(corners)
-
-        x_average = sum(single_pattern_points_copy[:,0]) / len(single_pattern_points_copy[:,0])
-        single_pattern_points_copy[:, 0] = single_pattern_points_copy[:, 0] - x_average
-        y_average = sum(single_pattern_points_copy[:, 1]) / len(single_pattern_points_copy[:, 1])
-        single_pattern_points_copy[:, 1] = single_pattern_points_copy[:, 1] - y_average
-        u_average = sum(corners_copy[:,:,0]) / len(corners_copy[:,:,0])
-        corners_copy[:, :, 0] = corners_copy[:,:,0] - u_average
-        v_average = sum(corners_copy[:, :, 1]) / len(corners_copy[:, :, 1])
-        corners_copy[:, :, 1] = corners_copy[:, :, 1] - v_average
+        single_pattern_points = copy.deepcopy(single_pattern_points)
+        corners = copy.deepcopy(corners)
+        
+        x_average = sum(single_pattern_points[:,0]) / len(single_pattern_points[:,0])
+        single_pattern_points[:, 0] = single_pattern_points[:, 0] - x_average
+        y_average = sum(single_pattern_points[:, 1]) / len(single_pattern_points[:, 1])
+        single_pattern_points[:, 1] = single_pattern_points[:, 1] - y_average
+        u_average = sum(corners[:,:,0]) / len(corners[:,:,0])
+        corners[:, :, 0] = corners[:,:,0] - u_average
+        v_average = sum(corners[:, :, 1]) / len(corners[:, :, 1])
+        corners[:, :, 1] = corners[:, :, 1] - v_average
 
         #scaling
         s_w = 1
-        for i in range(len(single_pattern_points_copy)):
-            s_w += (single_pattern_points_copy[i, 0] ** 2 + single_pattern_points_copy[i, 1] ** 2) ** 0.5
-        s_w /= (2 ** 0.5 * len(single_pattern_points_copy))
+        for i in range(len(single_pattern_points)):
+            s_w += (single_pattern_points[i, 0] ** 2 + single_pattern_points[i, 1] ** 2) ** 0.5
+        s_w /= (2 ** 0.5 * len(single_pattern_points))
         s_i = 1
-        for i in range(len(corners_copy[:, : 0])):
-            s_i += (corners_copy[0][0][0] ** 2 + corners_copy[0][0][1] ** 2) ** 0.5
-        s_i /= (2 ** 0.5 * len(corners_copy[:, :, 0]))
+        for i in range(len(corners[:, : 0])):
+            s_i += (corners[0][0][0] ** 2 + corners[0][0][1] ** 2) ** 0.5
+        s_i /= (2 ** 0.5 * len(corners[:, :, 0]))
         s_i -= 1
         s_w -= 1
-        single_pattern_points_copy[:, 0] =  list(np.array(single_pattern_points_copy[:, 0]) /s_w)
-        single_pattern_points_copy[:, 1] = list(np.array(single_pattern_points_copy[:, 1]) / s_w)
-        corners_copy[:, :, 0] = list(np.array(corners_copy[:, :, 0]) / s_i)
-        corners_copy[:, :, 1] = list(np.array(corners_copy[:, :, 1]) / s_i)
+        single_pattern_points[:, 0] =  list(np.array(single_pattern_points[:, 0]) /s_w)
+        single_pattern_points[:, 1] = list(np.array(single_pattern_points[:, 1]) / s_w)
+        corners[:, :, 0] = list(np.array(corners[:, :, 0]) / s_i)
+        corners[:, :, 1] = list(np.array(corners[:, :, 1]) / s_i)
+        '''
 
-
+        average = np.ones(9, np.float32)
 
         #add the points to be new row of L according to Appendiex A and calculate the jacbi matrix used in LM
-        for i in range(len(single_pattern_points_copy)):
-            rows_L.append(list(single_pattern_points_copy[i])  + [0,0,0]  + [x * -1 * corners_copy[i][0][0] for x in list ((single_pattern_points_copy[i]))])
-            rows_L.append([0,0,0] + list(single_pattern_points_copy[i])  +  [x * -1 * corners_copy[i][0][1] for x in list ((single_pattern_points_copy[i]))])
-            '''sum = 1
-    for i in range(len(rows_L)):
-        for j in range(len(rows_L[0])):
-            sum += rows_L[i][j]
-    rows_L = np.array(rows_L) - (sum / (9 * len(rows_L)))'''
+        for i in range(len(single_pattern_points)):
+            uM = [x * -1 * corners[i][0][0] for x in list ((single_pattern_points[i]))]
+            vM = [x * -1 * corners[i][0][1] for x in list ((single_pattern_points[i]))]
+            rows_L.append(list(single_pattern_points[i])  + [0,0,0]  + uM)
+            rows_L.append([0,0,0] + list(single_pattern_points[i])  +  vM)
+            for j in range(3):
+                average[j] += single_pattern_points[i][j]
+                average[j+3] += single_pattern_points[i][j]
+                average[j+6] = average[j+6] + uM[j] + vM[j]
 
+        average /= len(single_pattern_points)
+        average -= 1
+        divide = 1
         rows_L = np.array(rows_L)
+        for i in range(9):
+            for j in range(len(rows_L)):
+                divide += (rows_L[j][i] - average[i]) ** 2
+            rows_L[:, i] -= (average[i])
+        divide = divide ** 0.5
+        divide /= (3*len(rows_L))
+        divide -= 1
+        rows_L /= divide
+
         # using svd() function to get the right singular vector of L which is used for the initial value of H, and hit(i in [1,2,3]) represents the ith row of H
-        _, _, Vt = np.linalg.svd(rows_L)
+        _, s , Vt = np.linalg.svd(rows_L)
         h1t = (Vt[-1::][0][0:3])
         h2t = (Vt[-1::][0][3:6])
         h3t = (Vt[-1::][0][6:])
@@ -109,8 +123,6 @@ for fimage in images:
         f = []
         #calculate the  Jacobi matrix
         jacobi = []
-        single_pattern_points = np.array(single_pattern_points)
-        single_pattern_points[:, -1] = np.ones(len(single_pattern_points[:, -1]))
 
         for i in range(len(single_pattern_points)):
             jacobi.append([-1* single_pattern_points[i][0] / (np.dot(h3t, np.array(single_pattern_points[i]).T)),
@@ -137,8 +149,8 @@ for fimage in images:
         jacobi = np.array(jacobi)
         A = np.dot(jacobi.T, jacobi)
         g = np.dot(jacobi.T, -1 * f)
-        threshold = 1E-100
-        found = max(g) < threshold
+        threshold = 1E-150
+        found = max(abs(g)) < threshold
         u = max(np.diag(A))
         count = 0
 
@@ -165,11 +177,12 @@ for fimage in images:
                     new_f.append((corners[i][0][0] - np.dot(h1t, np.array(single_pattern_points[i]).T)) / (np.dot(h3t, np.array(single_pattern_points[i]).T)))
                     new_f.append((corners[i][0][1] - np.dot(h2t, np.array(single_pattern_points[i]).T)) / (np.dot(h3t, np.array(single_pattern_points[i]).T)))
                 new_f = np.array(new_f)
-                real_f.append(np.dot(f.T, f))
-                real_f_change.append(np.dot(f.T, f) - np.dot(new_f.T, new_f))
-                esti_f_change.append(np.dot(hlm.T, u * hlm + g))
+
                 p = (np.dot(f.T, f) - np.dot(new_f.T, new_f)) / np.dot(hlm.T, u * hlm + g)
                 if p > 0 :
+                    real_f.append(np.dot(f.T, f))
+                    real_f_change.append(np.dot(new_f.T, new_f) - np.dot(f.T, f))
+                    esti_f_change.append(-1 * np.dot(hlm.T, u * hlm + g))
                     h = h_new
                     #re-calculate the jacobi matrix again based on the new value of h, and new value of f
                     jacobi = []
@@ -202,8 +215,9 @@ for fimage in images:
                     jacobi = np.array(jacobi)
                     A = np.dot(jacobi.T, jacobi)
                     g = np.dot(jacobi.T, -1 * new_f)
+
                     f = new_f
-                    found = (max(g) < threshold) or (np.dot(f.T, f) < threshold)
+                    found = (max(abs(g)) < threshold) or (np.dot(f.T, f) < threshold)
                     u = u * max(1/3, 1-pow((2*p-1), 3))
                     v *= 2
                 else:
@@ -236,9 +250,10 @@ for fimage in images:
 
 #use function svd() to solve the equation V * b = 0, in order to get vector b, acoording to section 3.2
 
-V_b = np.array(V_b[3:6])
-_, _, Vt = np.linalg.svd(V_b)
-b = Vt[-1::][0].T
+V_b = np.array(V_b)
+_, s, Vt = np.linalg.svd(V_b[1:69])
+print(len(s))
+b = Vt[len(s)-1].T
 
 
 #according to Appendiex B, calculate the intrinsic paraters basedo on the vector b
@@ -265,7 +280,7 @@ rt = np.array(rt).T
 U, _, Vt = np.linalg.svd(np.array(rotation))
 rotation = np.dot(U, Vt)
 '''
-
+'''
 #calculate the matrix D according to calculate the distortion coefficient
 D = []
 b = []
@@ -273,10 +288,15 @@ for i in range(len(pattern_points)):
     for j in range(len(pattern_points[0])):
         #calculate the coordinates u and v
         new_image_point = np.dot(np.dot(K, rt), np.array(pattern_points[i][j]).T)
+        normal_image_plane = np.dot(rt, np.array(pattern_points[i][j]).T)
+        x = normal_image_plane[0] / normal_image_plane[2]
+        y = normal_image_plane[1] / normal_image_plane[2]
         u = new_image_point[0] / new_image_point[2]
         v = new_image_point[1] / new_image_point[2]
-        D.append([(u - u_0) * (pattern_points[i][j][0] ** 2 + pattern_points[i][j][1] ** 2), (u - u_0) * ((pattern_points[i][j][0] ** 2 + pattern_points[i][j][1] ** 2) ** 2)])
-        D.append([(v - v_0) * (pattern_points[i][j][0] ** 2 + pattern_points[i][j][1] ** 2), (v - v_0) * ((pattern_points[i][j][0] ** 2 + pattern_points[i][j][1] ** 2) ** 2)])
+        u /= lam
+        v /= lam
+        D.append([(u - u_0) * (x ** 2 + y ** 2), (u - u_0) * ((x ** 2 + y ** 2) ** 2)])
+        D.append([(v - v_0) * (x ** 2 + y ** 2), (v - v_0) * ((x ** 2 + y ** 2) ** 2)])
         b.append([image_points[i][j][0][0] - u])
         b.append([image_points[i][j][0][1] - v])
 D = np.array(D)
@@ -285,6 +305,8 @@ b = np.array(b)
 k = np.dot(np.dot(np.linalg.inv(np.dot(D.T, D)), D.T), b)
 print(k)
 print(k[1][0])
+'''
+
 
 #reprojection error
 error = 0
@@ -294,12 +316,12 @@ for i in range(len(pattern_points)):
         new_image_point = np.dot(np.dot(K, rt), np.array(pattern_points[i][j]).T)
         u = new_image_point[0] / new_image_point[2]
         v = new_image_point[1] / new_image_point[2]
-        new_image_points.append([[u + (u - u_0) * (k[0][0]*(pattern_points[i][j][0] ** 2 + pattern_points[i][j][1] ** 2) + k[1][0] * (pattern_points[i][j][0] ** 2 + pattern_points[i][j][1] ** 2) ** 2), v + (v - v_0) * (k[0][0]*(pattern_points[i][j][0] ** 2 + pattern_points[i][j][1] ** 2) + k[1][0] * (pattern_points[i][j][0] ** 2 + pattern_points[i][j][1] ** 2) ** 2)]])
+        new_image_points.append([[u,v]])#X + (u - u_0) * (k[0][0]*(pattern_points[i][j][0] ** 2 + pattern_points[i][j][1] ** 2) + k[1][0] * (pattern_points[i][j][0] ** 2 + pattern_points[i][j][1] ** 2) ** 2), v + (v - v_0) * (k[0][0]*(pattern_points[i][j][0] ** 2 + pattern_points[i][j][1] ** 2) + k[1][0] * (pattern_points[i][j][0] ** 2 + pattern_points[i][j][1] ** 2) ** 2)]])
     new_image_points = np.array(new_image_points)
 
     for z in range(len(image_points[0])):
-        error += ((new_image_points[z][0][0] - image_points[i][z][0][0]) ** 2 + (new_image_points[z][0][1] - image_points[i][z][0][1]) ** 2) ** 0.5
-print("total error before distortion is:", error/len(pattern_points))
+        error += ((new_image_points[z][0][0] - lam * image_points[i][z][0][0]) ** 2 + (new_image_points[z][0][1] - lam * image_points[i][z][0][1]) ** 2) ** 0.5
+print("total error is:", error/len(pattern_points))
 
 '''
 #undistort with function getOptimalNewCameraMatrix() and function undistort()
