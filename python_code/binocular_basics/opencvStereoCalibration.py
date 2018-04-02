@@ -80,8 +80,9 @@ T = rightTvecs[0] - np.dot(R, leftTvecs[0])
 
 T_r = -1 * np.dot(stereoR.T, stereoT)
 test =  -1 * np.dot(R.T, T)
-S = np.array([[0, -1*T_r[0], T_r[1]],[T_r[2], 0, -1*T_r[0]],[-1*T_r[1], T_r[0], 0]])
-E = np.dot(stereoR, S)
+S = np.array([[0, -1*T_r[2], T_r[1]],[T_r[2], 0, -1*T_r[0]],[-1*T_r[1], T_r[0], 0]])
+testS = np.array([[0, -1*T_r[2], T_r[1]],[T_r[2], 0, -1*T_r[0]],[-1*T_r[1], T_r[0], 0]])
+E = np.dot(R,S)
 t = np.linalg.matrix_rank(E)
 v,s,u = np.linalg.svd(E)  #make sure the rank of E is 2
 ms = np.eye(3)
@@ -129,7 +130,7 @@ right_image = cv.undistort(right_image, rightCameraMatrix, rightDistCoeffis, Non
 leftNewCameraMatrix, _ = cv.getOptimalNewCameraMatrix(leftCameraMatrix, leftDistCoeffis, (w, h), 0, (w, h))
 left_image = cv.undistort(left_image, leftCameraMatrix, leftDistCoeffis, None, leftNewCameraMatrix)
 
-coeffi = np.dot(stereoF, leftCorner)
+coeffi = np.dot(F, leftCorner)
 plt.subplot(1, 2, 1)
 plt.title('Left Image')
 cv.circle(left_image, (floor(leftCorner[0]), floor(leftCorner[1])), 4, (0, 255, 0))
