@@ -65,6 +65,7 @@ rightR, _ = cv.Rodrigues(rightRvecs[0])
 right_image = cv.imread('Project_Stereo_right/right/right01.jpg')
 right_image = cv.cvtColor(right_image, cv.COLOR_BGR2GRAY)
 
+#use the opencv function stereoCalibrate(), in order to make comparison with the matrices get by derivation
 h, w = right_image.shape
 _,left_mtx, left_dis,right_mtx,right_dis,stereoR,stereoT,stereoE,stereoF = cv.stereoCalibrate(pattern_points, left_image_points,right_image_points,leftCameraMatrix,leftDistCoeffis,rightCameraMatrix,rightDistCoeffis,(w,h))
 #use the intrisic and extrinsic parameters of left and right camera to calculate rotation matrix, translation vector, essential matrix and fundamental matrix
@@ -82,30 +83,28 @@ test =  -1 * np.dot(R.T, T)
 S = np.array([[0, -1*T_r[0], T_r[1]],[T_r[2], 0, -1*T_r[0]],[-1*T_r[1], T_r[0], 0]])
 E = np.dot(stereoR, S)
 t = np.linalg.matrix_rank(E)
-v,s,u = np.linalg.svd(E)
+v,s,u = np.linalg.svd(E)  #make sure the rank of E is 2
 ms = np.eye(3)
 ms[0][0] = s[0]
 ms[1][1] = s[1]
 ms[2][2] = 0
 E = np.dot(np.dot(v, ms), u)
-r = np.linalg.matrix_rank(E)
-
-r = np.linalg.matrix_rank(stereoE)
 #fundamental matrix
 F = np.dot(np.linalg.inv(right_mtx).T, np.dot(E, np.linalg.inv(left_mtx)))
-
-'''
+v,s,u = np.linalg.svd(F)     #make sure the rank of F is 2
 ms = np.eye(3)
 ms[0][0] = s[0]
 ms[1][1] = s[1]
 ms[2][2] = 0
 F = np.dot(np.dot(v, ms), u)
-r = np.linalg.matrix_rank(F)
-'''
-#draw the epipolar line
+
+#point used to draw the epipolar line
 leftCorner = np.array([[leftCorner[0][0]],[leftCorner[0][1]], [1]])
+#coefficient of epipolar line
 coeffi = np.dot(F, leftCorner)
-P = np.array([[3],[0],[0]])
+
+#use the point P in world coordinates to test the equation of fundamental matrix xTFx = 0
+P = np.array([[2],[0],[0]])
 leftP=  np.dot(leftCameraMatrix, np.dot(leftR, P) + leftTvecs[0])
 rightP = np.dot(rightCameraMatrix, np.dot(rightR, P) + rightTvecs[0])
 
@@ -117,14 +116,15 @@ rightP[0] = rightP[0]/rightP[2]
 rightP[1] = rightP[1]/rightP[2]
 rightP[2] = 1
 
+#test the accuracy of fudamental matrix, compared with the fundamental matrix calculated by function stereoCalibrate()
+testF = np.dot(rightP.T, np.dot(F, leftP))
+testStereoF = np.dot(rightP.T, np.dot(stereoF, leftP))
 
-rst1 = np.dot(rightP.T, np.dot(F, leftP))
-rst2 = np.dot(rightP.T, np.dot(stereoF, leftP))
-#list = cv.initUndistortRectifyMap(leftCameraMatrix, leftDistCoeffis, None, leftCameraMatrix, (w,h),cv.CV_16SC2)
-'''
-p = np.dot(np.linalg.inv(leftCameraMatrix), leftCorner)
-pw = np.dot(np.linalg.inv(leftR), np.dot(np.linalg.inv(leftCameraMatrix), leftCorner) - leftTvecs[0])
-'''
+print('the error of fundamental matrix calculated by derivation is:\n', testF)
+print('the error of fundamental matrix calculated by stereoCalibration() is:\n', testStereoF)
+
+#use the fundamental matrix calculated by opencv function stereoCalibrate() to draw the epipolar lines
+
 coeffi = np.dot(stereoF, leftCorner)
 plt.subplot(1, 2, 1)
 plt.title('Before undistortion')
