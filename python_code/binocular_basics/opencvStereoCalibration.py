@@ -78,7 +78,7 @@ R = np.dot(rightR, leftR.T)
 T = rightTvecs[0] - np.dot(R, leftTvecs[0])
 #essential matrix
 
-T_r = -1 * np.dot(stereoR.T, stereoT)
+T_r = -1 * np.dot(R.T, T)
 test =  -1 * np.dot(R.T, T)
 S = np.array([[0, -1*T_r[2], T_r[1]],[T_r[2], 0, -1*T_r[0]],[-1*T_r[1], T_r[0], 0]])
 testS = np.array([[0, -1*T_r[2], T_r[1]],[T_r[2], 0, -1*T_r[0]],[-1*T_r[1], T_r[0], 0]])
