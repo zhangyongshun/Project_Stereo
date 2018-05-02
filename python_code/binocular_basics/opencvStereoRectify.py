@@ -122,23 +122,21 @@ plt.axis('off')
 plt.subplot(3, 2, 4)
 plt.title('Right Image')
 #cv.line(right_image, (0, floor( - coeffi[2]/coeffi[1])), (600, floor(-600.*coeffi[0]/coeffi[1] - coeffi[2]/coeffi[1])), (0, 0, 255))
-for i in range(0, h, 20):
-    cv.line(right_new_image, (0, i),(580, i), (0, 0, 255))
+
 plt.imshow(right_new_image)
 plt.axis('off')
 
 plt.subplot(3, 2, 5)
 plt.title('Left(stereoRectify())')
 #cv.circle(left_image, (floor(leftCorner[0]), floor(leftCorner[1])), 4, (0, 255, 0))
-for i in range(0, h, 20):
-    cv.line(stereo_left_new_image, (0, i),(580, i), (0, 0, 255))
+
 plt.imshow(stereo_left_new_image)
 plt.axis('off')
 plt.subplot(3, 2, 6)
 plt.title('Right(stereoRectify())')
 #cv.line(right_image, (0, floor( - coeffi[2]/coeffi[1])), (600, floor(-600.*coeffi[0]/coeffi[1] - coeffi[2]/coeffi[1])), (0, 0, 255))
-for i in range(0, h, 20):
-    cv.line(stereo_right_new_image, (0, i),(580, i), (0, 0, 255))
+cv.imwrite('left.png', stereo_left_new_image);
+cv.imwrite('right.png', stereo_right_new_image);
 plt.imshow(stereo_right_new_image)
 plt.axis('off')
 plt.show()
