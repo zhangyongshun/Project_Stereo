@@ -1,10 +1,10 @@
 *With vs2013 OpenCV 3.4.1*
 
-**sgm_without_cuda.cpp**
+**opencvStereoSGBM.cpp**
   
-  It is a original edition of SGM algorithm, which runs under CPU, because I think it's easy to debug under CPU.
+  Implement SGM algorithm with OpenCV class stereoSGBM.
   
-  It has been finished yet, but most functions have been tested, which means a frame and other little work need to be done later.
+  Parameters, such as P1 and P2, are set according to OpenCV "stereo_matching.cpp sample file.
   
   INPUT: left images and right images
   
