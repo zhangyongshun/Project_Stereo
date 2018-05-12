@@ -4,16 +4,14 @@
 #include "devkit\cpp\io_disp.h"
 using namespace std;
 
-
 //load left and right images which have been rectified
 void readImage(cv::Mat &left_image, cv::Mat &right_image, int &width, int &height)
 {
-	left_image = cv::imread("left.png", CV_LOAD_IMAGE_GRAYSCALE);
-	right_image = cv::imread("right.png", CV_LOAD_IMAGE_GRAYSCALE);
+	left_image = cv::imread("left0.png", CV_LOAD_IMAGE_GRAYSCALE);
+	right_image = cv::imread("right0.png", CV_LOAD_IMAGE_GRAYSCALE);
 	width = left_image.cols;
 	height = left_image.rows;
 }
-
 void censusPro(int &total_match_pixels, int disparity_range, cv::Mat &prob, cv::Mat &left_image, cv::Mat &right_image, cv::Mat &left_disparity_image)
 {
 	total_match_pixels = 0;
@@ -35,7 +33,10 @@ void censusPro(int &total_match_pixels, int disparity_range, cv::Mat &prob, cv::
 	}
 	for (int row = 0; row < 256; row++)
 		for (int col = 0; col < 256; col++)
+		{
 			prob.at<float>(row, col) = prob.at<float>(row, col) / float(total_match_pixels);
+			//cout << (float)prob.at<float>(row, col) << endl;
+		}
 }
 void calculateMI(cv::Mat &left_image, cv::Mat &right_image, cv::Mat &left_disparity_image, cv::Mat &prob, cv::Mat &left_image_prob, cv::Mat &right_image_prob, int total_match_pixels)
 {
@@ -53,7 +54,8 @@ void calculateMI(cv::Mat &left_image, cv::Mat &right_image, cv::Mat &left_dispar
 		}
 		left_image_prob.at<float>(0, i) = left_sum;
 		right_image_prob.at<float>(0, i) = right_sum;
-	}
+	}	
+
 
 	//calculate -log(P \otimes g) for P_I_1, P_I_2,  P_I_1_I_2
 	float left_gb;
@@ -67,32 +69,43 @@ void calculateMI(cv::Mat &left_image, cv::Mat &right_image, cv::Mat &left_dispar
 	{
 		for (int j = 0; j != 256; j++)
 		{
+			if (prob.at<float>(i, j) < 1E-6)prob.at<float>(i, j) = 1E-6;
 			prob.at<float>(i, j) = -log(prob.at<float>(i, j));
 		}
+		if (left_image_prob.at<float>(0, i) < 1E-6)left_image_prob.at<float>(0, i) = 1E-6;
 		left_image_prob.at<float>(0, i) = -log(left_image_prob.at<float>(0, i));
-		right_image_prob.at<float>(0, i) = -log(right_image_prob.at<float>(0, i));
+		if (right_image_prob.at<float>(0, i) < 1E-6)right_image_prob.at<float>(0, i) = 1E-6;
+		right_image_prob.at<float>(0, i) = -log(right_image_prob.at<float>(0, i)) ;
 	}
+	
 	cv::GaussianBlur(prob, prob, cv::Size(7, 7), 0, 0);
 	cv::GaussianBlur(left_image_prob, left_image_prob, cv::Size(7, 1), 0, 0);
 	cv::GaussianBlur(right_image_prob, right_image_prob, cv::Size(7, 1), 0, 0);
+	
 }
 
 void saveDisparityImage(int disparity_range, cv::Mat &disparity_image)
 {
-	cv::imwrite("out1.png", disparity_image);
-	float factor = 256.0 / (disparity_range);
-	for (int row = 0; row < disparity_image.rows; ++row) {
-		for (int col = 0; col < disparity_image.cols; ++col) {
-			disparity_image.at<float>(row, col) *= factor;
-		}
-	}
-	cv::imwrite("out2.png", disparity_image);
+	cv::normalize(disparity_image, disparity_image, 1.0, 0.0, cv::NORM_MINMAX);//归一到0~1之间
+	
+	cv::Mat B = cv::Mat(disparity_image.rows, disparity_image.cols, CV_8UC1);
+	disparity_image.convertTo(B, CV_8UC1, 255, 0); //转换为0~255之间的整数
+	//for (int i = 0; i < B.rows; i++)
+	//{
+	//	for (int j = 0; j < B.cols; j++)
+	//	//	cout << (int)B.at<uchar>(i, j) << endl;
+	//}
+	cv::GaussianBlur(B, B, cv::Size(7, 1), 0, 0);
+	cv::imshow("B", B);//显示
+
+	cv::waitKey();
+	cv::imwrite("out2.png", B);
 }
 
 //cost aggregation
-void calculateOneWayCost(const int row_diff, const int col_diff, uchar *left_image, const uchar *right_image, 
-						float *hlr, float *hl, float *hr, float*dev_one_path_cost, const int width, const int height, 
-						const int disparity_range)
+void calculateOneWayCost(const int row_diff, const int col_diff, uchar *left_image, const uchar *right_image,
+	float *hlr, float *hl, float *hr, float*dev_one_path_cost, const int width, const int height,
+	const int disparity_range)
 {
 	float max = MAX_FLOAT;
 
@@ -105,13 +118,13 @@ void calculateOneWayCost(const int row_diff, const int col_diff, uchar *left_ima
 	switch (row_diff + (col_diff + 1) * 3 + 1)
 	{
 	case 0:
-		firstPath<<<grid_slam, block>>>(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
+		//firstPath << <grid_slam, block >> >(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
 		break;
 	case 1:
-		secondPath<<<grid_top_down, block>>>(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
+		secondPath << <grid_top_down, block >> >(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
 		break;
 	case 2:
-		thirdPath << <grid_slam, block >> >(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
+		//thirdPath << <grid_slam, block >> >(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
 		break;
 	case 3:
 		fourthPath << <grid_left_right, block >> >(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
@@ -120,13 +133,13 @@ void calculateOneWayCost(const int row_diff, const int col_diff, uchar *left_ima
 		fifthPath << <grid_left_right, block >> >(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
 		break;
 	case 5:
-		sixthPath << <grid_slam, block >> >(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
+		//sixthPath << <grid_slam, block >> >(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
 		break;
 	case 6:
 		seventhPath << <grid_top_down, block >> >(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
 		break;
 	case 7:
-		eighthPath << <grid_slam, block >> >(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
+		//eighthPath << <grid_slam, block >> >(left_image, right_image, hlr, hl, hr, dev_one_path_cost, max, width, height, disparity_range);
 		break;
 	default:
 		printf("path does not exist!\n");
@@ -152,10 +165,13 @@ __global__ void generateDisparity(const float *cost, float *disparity_image, con
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	int row = blockIdx.y * blockDim.y + threadIdx.y;
 
-	float min_cost_d = min_cost;
+	if (col >= width && row >= height)
+		return;
+	
 	if (col < width && row < height)
 	{
-		int min_d = 0;
+		float min_cost_d = min_cost;
+		int min_d = 16;
 		const float *v = &cost[(row*width + col)*disparity_range];
 		for (int d = 0; d < disparity_range; d++)
 		{
@@ -164,9 +180,9 @@ __global__ void generateDisparity(const float *cost, float *disparity_image, con
 				min_d = d;
 			}
 		}
-		disparity_image[col+row*width] = min_d; //find_min_index( &ACCUMULATED_COSTS(i,j,0), disp_range );
+		disparity_image[col + row*width] = min_d;
+		//printf("mind = %d, disparity=%f\n", min_d, disparity_image[col + row*width]);
 	}
-
 }
 
 //sgm with cuda accelerate
@@ -176,9 +192,9 @@ int main()
 	int width, height;
 	int total_match_pixels;
 
-	int disparity_range = 16;
+	int disparity_range = 32;
 
-	cv::Mat original_left_image, original_right_image, down_left_image,down_right_image;
+	cv::Mat original_left_image, original_right_image, down_left_image, down_right_image;
 	cv::Mat prob, left_image_prob, right_image_prob;
 	cv::Mat left_disparity_image, right_disparity_image;
 
@@ -191,8 +207,8 @@ int main()
 	float *hlr, *hl, *hr;
 	uchar *dev_left_image;
 	uchar *dev_right_image;
-	float * dev_aggregate_cost;
-	float *dev_one_path_cost;
+	float  * dev_aggregate_cost;
+	float  *dev_one_path_cost;
 
 	clock_t start = clock();
 
@@ -206,6 +222,7 @@ int main()
 
 
 	int count = 2; // make sure 1/16 cycles 3 times
+	int c1 = 2;
 	int down_height = height / 16;
 	int down_width = width / 16;
 	int down_disparity_range = disparity_range / 16;
@@ -214,7 +231,7 @@ int main()
 	for (int c = 16; c >= 1; c /= 2)
 	{
 		cout << c << endl;
-		prob = cv::Mat(cv::Size(256, 256), CV_32FC1, cv::Scalar(1E-6));
+		prob = cv::Mat(cv::Size(256, 256), CV_32FC1, cv::Scalar(1E-4));
 		left_image_prob = cv::Mat(cv::Size(256, 1), CV_32FC1, cv::Scalar(0));
 		right_image_prob = cv::Mat(cv::Size(256, 1), CV_32FC1, cv::Scalar(0));
 
@@ -235,13 +252,13 @@ int main()
 
 		//calculateMI(down_left_image, down_right_image, left_disparity_image, prob, left_image_prob, right_image_prob, gaussian_blur2D, gaussian_blur1D, total_match_pixels);
 		calculateMI(down_left_image, down_right_image, left_disparity_image, prob, left_image_prob, right_image_prob, total_match_pixels);
-		
+
 		int image_size = down_width*down_height*sizeof(char);
 		int down_cost_size = down_width*down_height*down_disparity_range*sizeof(float);
 
 		cudaMalloc((void **)&dev_left_image, image_size);
 		cudaMalloc((void **)&dev_right_image, image_size);
-		
+
 		cudaMemcpy(dev_left_image, down_left_image.ptr(), image_size, cudaMemcpyHostToDevice);
 		cudaMemcpy(dev_right_image, down_right_image.ptr(), image_size, cudaMemcpyHostToDevice);
 		cudaMemset(dev_aggregate_cost, 0, down_cost_size);
@@ -249,7 +266,7 @@ int main()
 		cudaMemcpy(hl, left_image_prob.ptr(), hl_size, cudaMemcpyHostToDevice);
 		cudaMemcpy(hr, right_image_prob.ptr(), hl_size, cudaMemcpyHostToDevice);
 
-		
+
 		dim3 block(512, 1);
 		dim3 grid(1, ceil(down_width*down_height*down_disparity_range / 512.));
 
@@ -266,10 +283,10 @@ int main()
 				aggregateCost << <grid, block >> >(dev_aggregate_cost, dev_one_path_cost, down_width*down_height*down_disparity_range);
 			}
 		}
-		
-		dim3 grid_d(ceil((float)down_width/32), ceil((float)down_height/32));
-		dim3 block_d(32, 32);
-		
+
+		dim3 grid_d(ceil((float)down_width / 32.), ceil((float)down_height / 16.));
+		dim3 block_d(32, 16);
+
 		float *dev_disparity_image;
 		int disparity_size = left_disparity_image.cols*left_disparity_image.rows*sizeof(float);
 
@@ -278,13 +295,15 @@ int main()
 		generateDisparity << <grid_d, block_d >> >(dev_aggregate_cost, dev_disparity_image, down_width, down_height, down_disparity_range, MAX_FLOAT);
 		cudaMemcpy(left_disparity_image.ptr(), dev_disparity_image, disparity_size, cudaMemcpyDeviceToHost);
 
+
 		cv::medianBlur(left_disparity_image, left_disparity_image, (3, 3));
+		
 		//cv::imshow("d", left_disparity_image);
 		//cv::waitKey();
 
 		cudaFree(dev_left_image);
 		cudaFree(dev_right_image);
-		
+
 
 		if (c == 1)
 		{
@@ -295,18 +314,19 @@ int main()
 			count--;
 			c = 32;
 		}
-		else
+        else
 		{
 			down_width = down_width * 2;
 			down_height = down_height * 2;
 			down_disparity_range = down_disparity_range * 2;
 		}
-		
+
 	}
 
 	//cv::imshow("d", left_disparity_image);
-	//cv::imshow("r", right_disparity_image);
-//	cv::waitKey();
+	////cv::imshow("r", right_disparity_image);
+	//   cv::waitKey();
+	cv::GaussianBlur(left_disparity_image, left_disparity_image, cv::Size(7, 1), 0, 0);
 	saveDisparityImage(disparity_range, left_disparity_image);
 
 
@@ -314,16 +334,16 @@ int main()
 
 	cout << "Time: " << (double)(stop - start) / CLK_TCK << endl;
 
-	DisparityImage kitti_d, calculate_d,c;
+	DisparityImage kitti_d, calculate_d, c;
 	//kitti_d.writeColor("kitti.png");
-	kitti_d.read("ground.png");
-	
-	kitti_d.writeColor("color.png");
-	calculate_d.read("out1.png");
-	calculate_d.writeColor("color1.png");
-	c.read("out2.png");
-	c.writeColor("color2.png");
-//	kitti_d.errorImage(kitti_d, calculate_d, true).write("error.png");
+    kitti_d.read("disp0.png");
+
+	kitti_d.writeColor("tcolor.png");
+	calculate_d.read("out2.png");
+	calculate_d.writeColor("color.png");
+	//c.read("out2.png");
+	//c.writeColor("color2.png");
+    kitti_d.errorImage(kitti_d, calculate_d, true).write("error.png");
 
 	cudaFree(dev_aggregate_cost);
 	cudaFree(dev_one_path_cost);
