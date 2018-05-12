@@ -18,10 +18,10 @@
   
 **main.cu**
   
-  main.cu includes path.h, and there are calculate mutual information cost functions and calculate disparity maps functions in main.cu,
+  main.cu includes path.h, and there are cost functions and calculate disparity maps functions in main.cu,
   all the function have been noted in the cpp file.
-  
-  KITTI images are used in the program, and "devkit\cpp\io_disp.h" is used for generating error image.
+ 
+  "devkit\cpp\io_disp.h" is used for generating error image.
   
   INPUT: left calibrated image, right calibrated image.
   
