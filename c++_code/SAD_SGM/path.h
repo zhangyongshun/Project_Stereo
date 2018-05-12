@@ -6,6 +6,7 @@
 #include <opencv2/imgproc.hpp>
 
 #define MAX_INT  888888
+
 #define P1 12
 #define P2 32
 #define PATH 8
